@@ -2,18 +2,19 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import choose, efficiency, evolution
+import sys
 
 def calculateLoads(graph):
     nodesLoad = nx.betweenness_centrality(graph)             
     return nodesLoad
 
-def firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachment, removeType, generator, probability, numberOfNodesToRemove=None):
+def firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachment, removeType, generator, probability, degreeSequence, numberOfNodesToRemove=None):
     for simulation in range(simulations):
-        print("Simulação:", simulation)
+        #print("Simulação:", simulation)
 
-        graph = chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, probability)
+        graph = chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, probability, degreeSequence)
         hubs = choose.highestDegreesNodes(graph, 3)
-        print("Largest hubs:", hubs)
+        #print("Largest hubs:", hubs)
 
         if removeType == "RandomFailures":
             nodes = choose.randomNodes(numberOfNodesToRemove, initialNodeCount)
@@ -31,7 +32,7 @@ def firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachmen
             print("Create new folder for this case!")
             return 0
 
-        degreeDistribution(graph, "initial degree histogram", "Initial")
+        #degreeDistribution(graph, "initial degree histogram", "Initial")
 
         initialLoad = calculateLoads(graph)
         
@@ -41,7 +42,7 @@ def firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachmen
 
         overloadCheck(graph, initialLoad, newLoad, tolerance, initialNodeCount, preferentialAttachment, removeType)
 
-    printResults(graph)
+    #printResults(graph)
 
     return graph
 
@@ -62,7 +63,7 @@ def overloadCheck(graph, startingLoad, newLoad, tolerance, initialNodeCount, pre
     iteration = 0
 
     while len(nodesToRemove) != 0 or iteration == 0:
-        print(iteration)
+        #print(iteration)
 
         currentEfficiency = round(nx.global_efficiency(graph) * 100, 2)
         efficienciesList.append(currentEfficiency)
@@ -90,9 +91,9 @@ def overloadCheck(graph, startingLoad, newLoad, tolerance, initialNodeCount, pre
         efficiency.attackOrFailureAccumulator(currentEfficiency, removeType, initialNodeCount, tolerance, preferentialAttachment)
 
     else:
-        evolution.networkEfficiency(efficienciesList)
-        evolution.nodeCount(nodeCountList)
-        evolution.largestComponentsNodeCount(nodesInLargestComponentList)
+        #evolution.networkEfficiency(efficienciesList)
+        #evolution.nodeCount(nodeCountList)
+        #evolution.largestComponentsNodeCount(nodesInLargestComponentList)
         efficiency.writeToFile(efficienciesList, initialNodeCount, tolerance, preferentialAttachment, removeType)
         evolution.writeNodesToFile(nodeCountList,nodesInLargestComponentList,initialNodeCount,tolerance,preferentialAttachment,removeType)
 
@@ -151,27 +152,41 @@ def attackOrFailuresProgression(tolerance, initialNodeCount, preferentialAttachm
 
             overloadCheck(graph, initialLoad, newLoad, tolerance, initialNodeCount, preferentialAttachment, removeType)
 
-def chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, probability):
+def chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, probability, degreeSequence):
     if generator == "barabasiAlbert":
         graph = nx.barabasi_albert_graph(initialNodeCount, preferentialAttachment)
     
     elif generator == "erdosRenyi":
         graph = nx.erdos_renyi_graph(initialNodeCount, probability)
 
+    elif generator == "configurationModel":
+        graph = nx.configuration_model(initialNodeCount, degreeSequence)
+
     return graph
 
-initialNodeCount = 5000
-preferentialAttachment = 5
-tolerance = 0.4
-removeType = "5LargestHubs"
-simulations = 1
-randomNodesToRemove = 1
-filePath1 = f"Data/EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{preferentialAttachment}PA.txt"
-filePath2 = f"Data/NodesData/TotalNodeCount/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{preferentialAttachment}PA.txt"
-filePath3 = f"Data/NodesData/LargestComponentsNodeCount/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{preferentialAttachment}PA.txt"
+generator = "erdosRenyi"
+initialNodeCount = int(sys.argv[1])
+tolerance = float(sys.argv[3])
+removeType = sys.argv[4]
+simulations = 100
+randomNodesToRemove = int(sys.argv[5])
 
-evolution.nodeCountAverages(filePath2, filePath3)
+preferentialAttachment = None
+degreeSequence = None
+probability = None
+if generator == "barabasiAlbert":
+    preferentialAttachment = int(sys.argv[2])
+    filePath = f"Barabasi/EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{preferentialAttachment}PA.txt"
+    
+elif generator == "erdosRenyi":
+    probability = float(sys.argv[2])
+    filePath = f"ErdosRenyi/EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{probability*100}%chance.txt"
 
-# firstFailure(tolerance, initialNodeCount, preferentialAttachment, removeType, simulations, randomNodesToRemove)
+elif generator == "configurationModel":
+    degreeSequence = float(sys.argv[2])
+    filePath = f"ConfigurationModel/EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{probability*100}%chance.txt"
 
-efficiency.averagesPlot(filePath1)
+
+firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachment, removeType, generator, probability, degreeSequence, randomNodesToRemove)
+
+#efficiency.averagesPlot(filePath)
