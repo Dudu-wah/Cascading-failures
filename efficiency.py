@@ -1,8 +1,8 @@
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 
-def writeToFile(efficienciesList, initialNodeCount, tolerance, preferentialAttachment, removeType):
-    filePath = f"EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{preferentialAttachment}PA.txt"
+def writeToFile(efficienciesList, initialNodeCount, tolerance, preferentialAttachment, removeType, probability, powerLawParameter):
+    filePath = f"configurationModel/EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{powerLawParameter}gamma.txt"
     file = open(filePath, "a+")
     file.write(f"{efficienciesList}\n")
     file.close()

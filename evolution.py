@@ -37,13 +37,13 @@ def networkEfficiency(efficienciesList):
     ax.plot(iterations, efficienciesList)
     plt.savefig("Graphs/Efficiency x iterations.png")
 
-def writeNodesToFile(nodesList, largestComponentsNodesList, initialNodeCount, tolerance, preferentialAttachment, removeType):
-    filePath = f"NodesData/TotalNodeCount/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{preferentialAttachment}PA.txt"
+def writeNodesToFile(nodesList, largestComponentsNodesList, initialNodeCount, tolerance, preferentialAttachment, removeType, probability, powerLawParameter):
+    filePath = f"ConfigurationModel/NodesData/TotalNodeCount/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{powerLawParameter}gamma.txt"
     file = open(filePath, "a+")
     file.write(f"{nodesList}\n")
     file.close()
 
-    filePath = f"NodesData/LargestComponentsNodeCount/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{preferentialAttachment}PA.txt"
+    filePath = f"ConfigurationModel/NodesData/LargestComponentsNodeCount/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{powerLawParameter}gamma.txt"
     file = open(filePath, "a+")
     file.write(f"{largestComponentsNodesList}\n")
     file.close()

@@ -8,11 +8,11 @@ def calculateLoads(graph):
     nodesLoad = nx.betweenness_centrality(graph)             
     return nodesLoad
 
-def firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachment, removeType, generator, probability, degreeSequence, numberOfNodesToRemove=None):
+def firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachment, removeType, generator, probability, powerLawParameter, numberOfNodesToRemove=None):
     for simulation in range(simulations):
         #print("Simulação:", simulation)
 
-        graph = chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, probability, degreeSequence)
+        graph = chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, probability, powerLawParameter)
         hubs = choose.highestDegreesNodes(graph, 3)
         #print("Largest hubs:", hubs)
 
@@ -28,6 +28,15 @@ def firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachmen
         elif removeType == "5LargestHubs":
             nodes = choose.highestDegreesNodes(graph, 5)
 
+        elif removeType == "10%LargestHubs":
+            nodes = choose.highestDegreesNodes(graph, int(0.1*initialNodeCount))
+
+        elif removeType == "20%LargestHubs":
+            nodes = choose.highestDegreesNodes(graph, int(0.2*initialNodeCount))
+
+        elif removeType == "30%LargestHubs":
+            nodes = choose.highestDegreesNodes(graph, int(0.3*initialNodeCount))
+
         else:
             print("Create new folder for this case!")
             return 0
@@ -40,7 +49,7 @@ def firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachmen
 
         newLoad = calculateLoads(graph)
 
-        overloadCheck(graph, initialLoad, newLoad, tolerance, initialNodeCount, preferentialAttachment, removeType)
+        overloadCheck(graph, initialLoad, newLoad, tolerance, initialNodeCount, preferentialAttachment, removeType, probability, powerLawParameter)
 
     #printResults(graph)
 
@@ -55,7 +64,7 @@ def removeNodeFromInitialLoadList(initialLoad, newLoad):
 
     return newInitialLoad
 
-def overloadCheck(graph, startingLoad, newLoad, tolerance, initialNodeCount, preferentialAttachment, removeType):
+def overloadCheck(graph, startingLoad, newLoad, tolerance, initialNodeCount, preferentialAttachment, removeType, probability, powerLawParameter):
     nodesToRemove = []
     efficienciesList = []
     nodeCountList = []
@@ -71,7 +80,11 @@ def overloadCheck(graph, startingLoad, newLoad, tolerance, initialNodeCount, pre
         currentNodeCount = graph.number_of_nodes()
         nodeCountList.append(currentNodeCount)
         
-        nodesInLargestComponent = len(max(nx.connected_components(graph), key=len))
+        if graph.number_of_nodes() != 0:
+            nodesInLargestComponent = len(max(nx.connected_components(graph), key=len))
+        else:
+            nodesInLargestComponent = 0
+        
         nodesInLargestComponentList.append(nodesInLargestComponent)
 
         nodesToRemove = []
@@ -94,8 +107,8 @@ def overloadCheck(graph, startingLoad, newLoad, tolerance, initialNodeCount, pre
         #evolution.networkEfficiency(efficienciesList)
         #evolution.nodeCount(nodeCountList)
         #evolution.largestComponentsNodeCount(nodesInLargestComponentList)
-        efficiency.writeToFile(efficienciesList, initialNodeCount, tolerance, preferentialAttachment, removeType)
-        evolution.writeNodesToFile(nodeCountList,nodesInLargestComponentList,initialNodeCount,tolerance,preferentialAttachment,removeType)
+        efficiency.writeToFile(efficienciesList, initialNodeCount, tolerance, preferentialAttachment, removeType, probability, powerLawParameter)
+        evolution.writeNodesToFile(nodeCountList, nodesInLargestComponentList, initialNodeCount, tolerance, preferentialAttachment, removeType, probability, powerLawParameter)
 
     return graph
 
@@ -152,7 +165,7 @@ def attackOrFailuresProgression(tolerance, initialNodeCount, preferentialAttachm
 
             overloadCheck(graph, initialLoad, newLoad, tolerance, initialNodeCount, preferentialAttachment, removeType)
 
-def chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, probability, degreeSequence):
+def chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, probability, powerLawParameter):
     if generator == "barabasiAlbert":
         graph = nx.barabasi_albert_graph(initialNodeCount, preferentialAttachment)
     
@@ -160,19 +173,55 @@ def chooseGraphGenerator(generator, initialNodeCount, preferentialAttachment, pr
         graph = nx.erdos_renyi_graph(initialNodeCount, probability)
 
     elif generator == "configurationModel":
-        graph = nx.configuration_model(initialNodeCount, degreeSequence)
+        degreeSequence = powerLawIntegerSequence(powerLawParameter, initialNodeCount)
+        graphMulti = nx.configuration_model(degreeSequence)
+
+        graph = nx.Graph(graphMulti)
+        graph.remove_edges_from(nx.selfloop_edges(graph))
 
     return graph
 
-generator = "erdosRenyi"
+def powerLawIntegerSequence2(powerLawParameter, maxSum):
+    sum = 0
+    degree = 1
+    sequence = []
+
+    while sum < maxSum:
+        current = max(1, int(round(degree ** powerLawParameter)))
+        sum += current
+        sequence.append(current)
+
+        if sum > 0.995 * maxSum or (sum >= 0.98 * maxSum and maxSum < 200):
+            sequence.append(int(maxSum - sum))
+            break
+
+        degree += 1
+
+    return sequence
+
+def powerLawIntegerSequence(powerLawParameter, nodeCount):
+    sequence = [int(degreeCount) for degreeCount in nx.utils.powerlaw_sequence(nodeCount, powerLawParameter)]
+
+    if sum(sequence) % 2 != 0:
+        sequence[-1] += 1
+
+    return sequence
+
+generator = "configurationModel"
 initialNodeCount = int(sys.argv[1])
 tolerance = float(sys.argv[3])
 removeType = sys.argv[4]
 simulations = 100
 randomNodesToRemove = int(sys.argv[5])
 
+# initialNodeCount = 1000
+# tolerance = 0.4
+# removeType = "3LargestHubs"
+# simulations = 1
+# randomNodesToRemove = 100
+
 preferentialAttachment = None
-degreeSequence = None
+powerLawParameter = None
 probability = None
 if generator == "barabasiAlbert":
     preferentialAttachment = int(sys.argv[2])
@@ -183,10 +232,10 @@ elif generator == "erdosRenyi":
     filePath = f"ErdosRenyi/EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{probability*100}%chance.txt"
 
 elif generator == "configurationModel":
-    degreeSequence = float(sys.argv[2])
-    filePath = f"ConfigurationModel/EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{probability*100}%chance.txt"
+    powerLawParameter = float(sys.argv[2])
+    filePath = f"ConfigurationModel/EfficienciesData/{removeType}/{initialNodeCount}Nodes_{int(tolerance*100)}%tolerance_{powerLawParameter}gamma.txt"
 
 
-firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachment, removeType, generator, probability, degreeSequence, randomNodesToRemove)
+firstFailure(simulations, tolerance, initialNodeCount, preferentialAttachment, removeType, generator, probability, powerLawParameter, randomNodesToRemove)
 
 #efficiency.averagesPlot(filePath)
